@@ -3,7 +3,7 @@ import React from "react";
 import "./App.css";
 
 import Particles from "react-particles-js";
-import Clarifai, { COLOR_MODEL } from "clarifai";
+import Clarifai from "clarifai";
 
 import Navigation from "./Components/Navigation/navigation.component";
 import Logo from "./Components/Logo/logo.component";
@@ -16,6 +16,7 @@ const app = new Clarifai.App({
   apiKey: "65622a812f0843049fe23957ef31da60",
 });
 
+//background animation
 const particlesOptions = {
   particles: {
     number: {
@@ -43,8 +44,31 @@ class App extends React.Component {
     this.state = {
       input: "",
       imageUrl: "",
+      box: {},
     };
   }
+
+  //this is to calculate face location on the picture detected
+  calculateFaceLocation = (data) => {
+    const clarifaiFace =
+      data.outputs[0].data.regions[0].region_info.bounding_box; //data received from api
+    const image = document.getElementById("inputimage");
+    const width = Number(image.width);
+    const height = Number(image.height);
+    //to determine face location
+    return {
+      leftCol: clarifaiFace.left_col * width, //total image width * left_col value(%)
+      topRow: clarifaiFace.top_row * height, //total image height * top_row value(%)
+      rightCol: width - clarifaiFace.right_col * width, //total image width - width from the left side
+      bottomRow: height - clarifaiFace.bottom_row * height, //total image height - height from the top side
+    };
+  };
+
+  //setting state with the return values
+  displayFaceBox = (box) => {
+    console.log(box);
+    this.setState({ box: box });
+  };
 
   onInputChange = (event) => {
     this.setState({ input: event.target.value });
@@ -52,17 +76,13 @@ class App extends React.Component {
 
   onButtonSubmit = () => {
     this.setState({ imageUrl: this.state.input });
-    app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input).then(
-      function (response) {
+    app.models
+      .predict(Clarifai.FACE_DETECT_MODEL, this.state.input) //detect face from user input URL
+      .then((response) =>
         // do something with response
-        console.log(
-          response.outputs[0].data.regions[0].region_info.bounding_box
-        );
-      },
-      function (err) {
-        // there was an error
-      }
-    );
+        this.displayFaceBox(this.calculateFaceLocation(response))
+      )
+      .catch((error) => console.log(error));
   };
 
   render() {
@@ -76,7 +96,7 @@ class App extends React.Component {
           onInputChange={this.onInputChange}
           onButtonSubmit={this.onButtonSubmit}
         />
-        <FaceRecognition imageUrl={this.state.imageUrl} />
+        <FaceRecognition box={this.state.box} imageUrl={this.state.imageUrl} />
       </div>
     );
   }
